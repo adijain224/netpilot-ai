@@ -307,11 +307,3 @@ Use this step-by-step checklist during your project demonstration or oral examin
 
 ---
 
-## 11. Final Submission Checklist for Project Report
-
-- [x] Complete Python source code modularized into clean components (`config.py`, `network_monitor.py`, `device_discovery.py`, `traffic_classifier.py`, `traffic_predictor.py`, `allocation_engine.py`, `qos_controller.py`, `knowledge_graph.py`, `evaluation.py`, `app.py`).
-- [x] Automated test suite with 27 passing test cases (`test_netpilot.py`).
-- [x] Mathematical formulations documented for Jain's Fairness Index, Max-Min Weighted Fair Queuing, Holt-Winters Exponential Smoothing, and Contextual Q-Learning MDP.
-- [x] Complete historical traffic database (`data/traffic_history.csv` with 3,900+ logged rows).
-- [x] Honest engineering disclosure regarding Windows Mobile Hotspot NAT forwarding limitations vs Linux gateway `tc` enforcement.
-- [x] Responsive dark-mode operations console with live charts, knowledge graph, and entity inspector.
