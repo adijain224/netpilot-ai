@@ -1,0 +1,7 @@
+Flask==3.0.3
+psutil==6.0.0
+scapy>=2.5.0
+networkx>=3.0
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.0.0

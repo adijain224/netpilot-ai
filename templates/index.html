@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetPilot AI — Bandwidth Optimization & Resource Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/vis-network.min.js') }}"></script>
+<script>
+  // Fallbacks in case local vendor assets are unavailable
+  if (typeof Chart === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>');
+  }
+  if (typeof vis === 'undefined') {
+    document.write('<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"><\/script>');
+  }
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+        <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
+        <circle cx="4" cy="5" r="1.8" fill="currentColor" opacity="0.55"/>
+        <circle cx="20" cy="5" r="1.8" fill="currentColor" opacity="0.55"/>
+        <circle cx="4" cy="19" r="1.8" fill="currentColor" opacity="0.55"/>
+        <circle cx="20" cy="19" r="1.8" fill="currentColor" opacity="0.55"/>
+        <path d="M12 12 L4 5 M12 12 L20 5 M12 12 L4 19 M12 12 L20 19" stroke="currentColor" stroke-width="1.1" opacity="0.55"/>
+      </svg>
+    </span>
+    <div class="brand-text">
+      <span class="brand-name">NetPilot <em>AI</em></span>
+      <span class="brand-sub">Intelligent Bandwidth Allocation & QoS Console</span>
+    </div>
+  </div>
+
+  <div class="status-cluster">
+    <div class="status-chip" id="linkChip" title="Active network interface">
+      <span class="dot" id="linkDot"></span>
+      <span id="linkText">Connecting…</span>
+    </div>
+    <div class="status-chip mono" id="enforcementChip" title="QoS Bandwidth Enforcement Mode">
+      <span class="dot" id="enfDot"></span>
+      <span id="enfText">Mode: Simulation</span>
+    </div>
+    <div class="status-chip mono" id="congestionChip">— load —</div>
+    <button class="btn-ghost-sm" id="diagBtn" title="Network Topology & Discovery Diagnostics">Diagnostics</button>
+    <button class="btn-ghost-sm" id="evalBtn" title="Run Benchmark Evaluation">Benchmark</button>
+    <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 6.1 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1h.09a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- KPI row -->
+  <section class="kpi-row">
+    <div class="kpi">
+      <span class="kpi-label">Downlink</span>
+      <span class="kpi-value mono" id="kpiDown">0.0<small>Mbps</small></span>
+      <span class="kpi-sub" id="kpiDownType">OS Hardware Counters</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Uplink</span>
+      <span class="kpi-value mono" id="kpiUp">0.0<small>Mbps</small></span>
+      <span class="kpi-sub" id="kpiUpType">OS Hardware Counters</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Avg. Latency</span>
+      <span class="kpi-value mono" id="kpiLatency">—<small>ms</small></span>
+      <span class="kpi-sub">ICMP Health Echo</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Devices Online</span>
+      <span class="kpi-value mono" id="kpiDevices">0<small id="kpiDevicesTotal">/0</small></span>
+      <span class="kpi-sub" id="kpiActiveDetail">0 Confirmed Active</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Capacity</span>
+      <span class="kpi-value mono" id="kpiCapacity">—<small>Mbps</small></span>
+      <span class="kpi-sub" id="kpiJains">Jain's Fairness: 1.0</span>
+    </div>
+  </section>
+
+  <!-- Bandwidth chart -->
+  <section class="panel panel-chart">
+    <div class="panel-head">
+      <div>
+        <h2>Link Throughput</h2>
+        <span class="panel-note" id="throughputSub">Real OS-measured interface traffic (psutil)</span>
+      </div>
+      <span class="badge-live">LIVE</span>
+    </div>
+    <div class="chart-container">
+      <canvas id="bwChart"></canvas>
+      <div id="bwEmptyState" class="chart-empty-state" style="display:none;">
+        <span class="empty-icon">📊</span>
+        <span>Awaiting Traffic Samples</span>
+        <span class="empty-sub">Physical link monitoring active</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Allocation -->
+  <section class="panel panel-allocation">
+    <div class="panel-head">
+      <div>
+        <h2>AI Bandwidth Allocation</h2>
+        <span class="panel-note" id="allocActionDesc">Weighted Fair-Share Policy</span>
+      </div>
+      <span class="badge-tag" id="jainsTag">Jain: 1.0</span>
+    </div>
+    <div class="alloc-content">
+      <div class="alloc-chart-container">
+        <canvas id="allocChart"></canvas>
+        <div id="allocEmptyState" class="chart-empty-state" style="display:none;">
+          <span class="empty-icon">⚖️</span>
+          <span>No Active Allocations</span>
+          <span class="empty-sub" id="allocEmptySub">Devices offline or idle (0 Mbps demanded)</span>
+        </div>
+      </div>
+      <ul class="legend" id="allocLegend"></ul>
+    </div>
+  </section>
+
+  <!-- Traffic Prediction Chart -->
+  <section class="panel panel-prediction">
+    <div class="panel-head">
+      <div>
+        <h2>Traffic Demand Forecast</h2>
+        <span class="panel-note">Observed Actuals vs Short-term Holt-Winters Trend</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge-stat mono" id="peakBadge" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);padding:2px 8px;border-radius:4px;" title="Diurnal Historical Peak-Hour Demand Status">Off-Peak</span>
+        <span class="badge-stat mono" id="maeBadge">MAE: 0.00 Mbps</span>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="predChart"></canvas>
+      <div id="predEmptyState" class="chart-empty-state" style="display:none;">
+        <span class="empty-icon">📈</span>
+        <span>Collecting Historical Data</span>
+        <span class="empty-sub">Building Holt-Winters trend baseline</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Decision log -->
+  <section class="panel panel-log">
+    <div class="panel-head">
+      <div>
+        <h2>Agent & Controller Log</h2>
+        <span class="panel-note">RL Q-Learning Updates & QoS Decisions</span>
+      </div>
+      <span class="panel-note mono" id="logCount">0 events</span>
+    </div>
+    <ul class="log-list" id="logList"></ul>
+  </section>
+
+  <!-- Knowledge graph -->
+  <section class="panel panel-graph">
+    <div class="panel-head">
+      <div>
+        <h2>Network Knowledge Graph</h2>
+        <span class="panel-note">Topology: Interfaces ↔ Core Policy ↔ Traffic Classes ↔ Devices</span>
+      </div>
+      <span class="panel-note">Click any node to inspect properties</span>
+    </div>
+    <div class="graph-layout">
+      <div id="kgraph"></div>
+      <div id="nodeInspector" class="node-inspector">
+        <h4 id="inspectorTitle">Entity Inspector</h4>
+        <div id="inspectorDetails" class="inspector-details">
+          <p class="muted">Click any node in the knowledge graph to view real-time technical properties.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Upstream Infrastructure & Internet Providers -->
+  <section class="panel panel-upstream" id="upstreamPanel">
+    <div class="panel-head">
+      <div>
+        <h2>Upstream Internet Provider & Network Gateway (Infrastructure)</h2>
+        <span class="panel-note">Uplink sources providing Internet connectivity to this PC and hotspot clients (Exempt from client bandwidth throttling)</span>
+      </div>
+      <span class="badge-stat mono" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);padding:2px 8px;border-radius:4px;">UPLINK SOURCE</span>
+    </div>
+    <div class="device-table-wrap">
+      <table class="device-table">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Provider Device</th>
+            <th>Gateway / IP Address</th>
+            <th>MAC Address</th>
+            <th>Uplink Type</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="upstreamRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Devices -->
+  <section class="panel panel-devices">
+    <div class="panel-head">
+      <div>
+        <h2>Connected & Discovered Devices</h2>
+        <span class="panel-note" id="deviceModeNote">—</span>
+      </div>
+      <div class="table-actions">
+        <span class="badge-subtle">Click priority to cycle · Cut off internet button instantly drops client to 0 Mbps</span>
+      </div>
+    </div>
+    <div class="device-table-wrap">
+      <table class="device-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Device</th>
+            <th>IP Address</th>
+            <th>Priority</th>
+            <th>Classification</th>
+            <th>Traffic Usage (Rx/Tx)</th>
+            <th>AI Allocation</th>
+            <th>Allocation Rationale</th>
+            <th>Latency</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="deviceRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsBackdrop">
+  <div class="modal">
+    <h3>System & QoS Settings</h3>
+    <label class="field">
+      <span>Total Link Capacity (Mbps)</span>
+      <input type="number" id="capacityInput" min="1" step="1">
+    </label>
+    <label class="field">
+      <span>Monitored Interface</span>
+      <select id="interfaceSelect"></select>
+    </label>
+    <label class="field">
+      <span>Bandwidth Enforcement Mode</span>
+      <select id="enfModeSelect">
+        <option value="simulation">Simulation / Dry-Run (Safe, recommended for demo)</option>
+        <option value="windows_qos">Windows Local QoS Policy (PowerShell)</option>
+        <option value="router_linux_tc">Linux / Router Gateway (tc HTB)</option>
+      </select>
+    </label>
+    <label class="field-check">
+      <input type="checkbox" id="adminAuthCheck">
+      <span>Administrator Authorization (Required for non-simulation modes)</span>
+    </label>
+    <div class="enforcement-warning" id="enfWarning">
+      <strong>Notice:</strong> Windows Mobile Hotspot uses NAT forwarding. Windows QoS controls host sockets; forwarded hotspot packets require specialized NDIS intermediate drivers or an external router. Simulation mode safely demonstrates full QoS logic without altering system networking.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger-sm" id="resetQoSBtn">Reset All Limits</button>
+      <button class="btn-ghost" id="closeSettings">Cancel</button>
+      <button class="btn-primary" id="saveSettings">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Evaluation Benchmark Modal -->
+<div class="modal-backdrop" id="evalBackdrop">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3>Experimental Performance Evaluation</h3>
+      <button class="icon-btn-sm" id="closeEval">✕</button>
+    </div>
+    <p class="eval-sub" id="evalSub">Comparing Static Allocation, Equal Fair-Share, Priority-Based (SPQ), and NetPilot AI (Adaptive Priority-Aware WFQ + RL).</p>
+    
+    <div class="eval-table-wrap">
+      <table class="eval-table">
+        <thead>
+          <tr>
+            <th>Allocation Policy</th>
+            <th>Avg Latency</th>
+            <th>Throughput</th>
+            <th>Jain's Fairness</th>
+            <th>VoIP Satisfaction</th>
+            <th>Unmet Demand</th>
+            <th>Overhead</th>
+          </tr>
+        </thead>
+        <tbody id="evalRows"></tbody>
+      </table>
+    </div>
+
+    <div class="eval-summary-box" id="evalSummaryText">
+      Loading benchmark results...
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" id="reRunEval">Re-run Benchmark</button>
+      <button class="btn-ghost" id="dismissEval">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Diagnostics Modal -->
+<div class="modal-backdrop" id="diagBackdrop">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3>Network Discovery & Capture Diagnostics</h3>
+      <button class="icon-btn-sm" id="closeDiag">✕</button>
+    </div>
+    <p class="eval-sub" id="diagSub">Inspect why devices were identified as clients, gateways, or local host addresses.</p>
+    
+    <div class="eval-table-wrap">
+      <table class="eval-table">
+        <thead>
+          <tr>
+            <th>IP Address</th>
+            <th>Type / Role</th>
+            <th>Client?</th>
+            <th>Classification Reason</th>
+          </tr>
+        </thead>
+        <tbody id="diagRows"></tbody>
+      </table>
+    </div>
+
+    <div class="eval-summary-box" id="diagSummaryBox">
+      Loading diagnostics...
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" id="reRunDiag">Refresh Diagnostics</button>
+      <button class="btn-ghost" id="dismissDiag">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
